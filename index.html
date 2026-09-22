@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ដើរផ្សារ24</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Khmer:wght@500;700&family=Noto+Sans+Khmer:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #16241C;
+    --bg-row: #1D2F24;
+    --line: #33463A;
+    --gold: #E3A008;
+    --gold-dim: #9C7A2E;
+    --leaf: #7BAA5C;
+    --cream: #F3EFE3;
+    --muted: #9DAA98;
+    --danger: #D9776A;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg);
+    color: var(--cream);
+    font-family: 'Noto Sans Khmer', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1, h2, .khmer-serif { font-family: 'Noto Serif Khmer', serif; }
+
+  header {
+    position: sticky; top: 0; z-index: 10;
+    padding: env(safe-area-inset-top, 0px) 18px 0 18px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 14px 0 10px 0;
+  }
+  .brand h1 { margin: 0; font-size: 21px; font-weight: 700; color: var(--gold); letter-spacing: .3px; }
+  .brand .tagline { margin: 0; font-size: 12px; color: var(--muted); }
+
+  .tabs {
+    display: flex; gap: 22px; overflow-x: auto;
+    padding-bottom: 10px; scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    background: none; border: none; color: var(--muted);
+    font-family: inherit; font-size: 14px; font-weight: 500;
+    padding: 2px 0 8px 0; white-space: nowrap; cursor: pointer;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--cream); border-bottom-color: var(--gold); }
+
+  main { padding: 6px 18px 140px 18px; }
+
+  .row {
+    display: flex; gap: 12px; padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .row img {
+    width: 64px; height: 64px; object-fit: cover;
+    border-radius: 6px; flex-shrink: 0; background: var(--bg-row);
+  }
+  .row-info { flex: 1; min-width: 0; }
+  .row-info .name { font-size: 15.5px; font-weight: 500; margin: 0 0 3px 0; }
+  .row-info .unit-note { font-size: 12px; color: var(--muted); margin: 0 0 6px 0; line-height: 1.5; }
+  .row-info .price-line { display: flex; align-items: baseline; gap: 8px; }
+  .row-info .price { font-size: 15px; color: var(--gold); font-weight: 600; }
+  .row-info .stock { font-size: 11.5px; color: var(--muted); }
+  .row-info .stock.low { color: var(--danger); }
+
+  .stepper {
+    display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  }
+  .stepper button {
+    width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--bg-row); color: var(--cream); font-size: 16px; line-height: 1;
+    cursor: pointer;
+  }
+  .stepper button:active { background: var(--line); }
+  .stepper input {
+    width: 54px; text-align: center; background: transparent; border: none;
+    color: var(--cream); font-size: 14px; font-family: inherit;
+  }
+  .stepper .subtotal { margin-left: auto; font-size: 12.5px; color: var(--muted); }
+
+  .cart-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+    padding: 12px 18px calc(14px + env(safe-area-inset-bottom, 0px)) 18px;
+    background: var(--bg-row); border-top: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    transform: translateY(110%); transition: transform .25s ease;
+  }
+  .cart-bar.visible { transform: translateY(0); }
+  .cart-bar .count { font-size: 12.5px; color: var(--muted); }
+  .cart-bar .total { font-size: 17px; font-weight: 700; color: var(--gold); }
+
+  .sheet-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.55);
+    z-index: 30; display: none;
+  }
+  .sheet-overlay.open { display: block; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 31;
+    background: var(--bg); border-radius: 16px 16px 0 0;
+    max-height: 78vh; overflow-y: auto;
+    padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0px)) 18px;
+    transform: translateY(100%); transition: transform .25s ease;
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet h2 { margin: 0 0 14px 0; font-size: 18px; }
+  .cart-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px;
+  }
+  .cart-item .remove { color: var(--danger); background: none; border: none; font-size: 13px; cursor: pointer; }
+  .pay-methods { display: flex; gap: 10px; margin-top: 16px; }
+  .pay-methods button {
+    flex: 1; padding: 12px 8px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg-row); color: var(--cream); font-family: inherit; font-size: 13px;
+    cursor: pointer;
+  }
+  .pay-methods button.selected { border-color: var(--gold); color: var(--gold); }
+  .grand-total-line {
+    display: flex; justify-content: space-between; margin-top: 16px;
+    padding-top: 12px; border-top: 1px solid var(--line); font-size: 15px;
+  }
+  .grand-total-line strong { color: var(--gold); }
+
+  .state-msg {
+    text-align: center; color: var(--muted); padding: 60px 20px; font-size: 14px;
+  }
+  .toast {
+    position: fixed; top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%;
+    transform: translateX(-50%); background: var(--bg-row); border: 1px solid var(--line);
+    color: var(--cream); padding: 10px 16px; border-radius: 8px; font-size: 13px;
+    z-index: 40; max-width: 86%; text-align: center; display: none;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>ដើរផ្សារ24</h1>
+    <p class="tagline">ស្រស់ រហ័ស ដល់ផ្ទះ</p>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</header>
+
+<main id="product-list">
+  <p class="state-msg">កំពុងផ្ទុកទំនិញ...</p>
+</main>
+
+<div class="cart-bar" id="cart-bar">
+  <span class="count" id="cart-count">0 ធាតុ</span>
+  <span class="total" id="cart-total">0៛</span>
+</div>
+
+<div class="sheet-overlay" id="overlay"></div>
+<div class="sheet" id="cart-sheet">
+  <h2>កន្ត្រករបស់អ្នក</h2>
+  <div id="cart-items"></div>
+  <div class="grand-total-line">
+    <span>ថ្លៃដឹកជញ្ជូននឹងបង្ហាញនៅជំហានបញ្ជាក់ក្នុង Bot</span>
+  </div>
+  <div class="grand-total-line">
+    <span>សរុប</span><strong id="sheet-total">0៛</strong>
+  </div>
+  <p class="tagline" style="margin-top:14px;">ជ្រើសរើសរបៀបទូទាត់</p>
+  <div class="pay-methods" id="pay-methods">
+    <button data-method="COD" class="selected">💵 ទូទាត់ក្រោយទទួល</button>
+    <button data-method="ACLEDA">🏦 ACLEDA</button>
+    <button data-method="ABA">🏦 ABA</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) { tg.ready(); tg.expand(); }
+
+  // ⚙️ កំណត់ត្រង់នេះ — URL របស់ Cloudflare Worker
+  const API_BASE = "https://daerphsar24-mall.kosaldean2027.workers.dev";
+
+  let products = [];
+  let cart = {};        // { productId: qty }
+  let activeCategory = "ទាំងអស់";
+  let selectedPayMethod = "COD";
+
+  const listEl = document.getElementById("product-list");
+  const tabsEl = document.getElementById("tabs");
+  const cartBar = document.getElementById("cart-bar");
+  const cartCountEl = document.getElementById("cart-count");
+  const cartTotalEl = document.getElementById("cart-total");
+  const overlay = document.getElementById("overlay");
+  const sheet = document.getElementById("cart-sheet");
+  const toastEl = document.getElementById("toast");
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.style.display = "block";
+    setTimeout(() => { toastEl.style.display = "none"; }, 2600);
+  }
+
+  function fmtRiel(n) {
+    return Math.round(n).toLocaleString("en-US") + "៛";
+  }
+
+  async function loadProducts() {
+    try {
+      const res = await fetch(API_BASE + "/api/products");
+      const data = await res.json();
+      products = data.products || [];
+    } catch (e) {
+      listEl.innerHTML = '<p class="state-msg">មិនអាចផ្ទុកទំនិញបានទេ សូមព្យាយាមម្តងទៀត</p>';
+      return;
+    }
+    buildTabs();
+    render();
+  }
+
+  function buildTabs() {
+    const cats = ["ទាំងអស់", ...new Set(products.map(p => p.category).filter(Boolean))];
+    tabsEl.innerHTML = "";
+    cats.forEach(cat => {
+      const btn = document.createElement("button");
+      btn.className = "tab" + (cat === activeCategory ? " active" : "");
+      btn.textContent = cat;
+      btn.onclick = () => { activeCategory = cat; buildTabs(); render(); };
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function render() {
+    const filtered = activeCategory === "ទាំងអស់"
+      ? products
+      : products.filter(p => p.category === activeCategory);
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<p class="state-msg">មិនមានទំនិញក្នុងប្រភេទនេះទេ</p>';
+      return;
+    }
+
+    listEl.innerHTML = "";
+    filtered.forEach(p => listEl.appendChild(renderRow(p)));
+    updateCartBar();
+  }
+
+  function renderRow(p) {
+    const row = document.createElement("div");
+    row.className = "row";
+
+    const isLow = p.stock > 0 && p.stock <= 5;
+    const isOut = p.stock <= 0;
+    const step = /kg/i.test(p.unit) ? 0.5 : 1;
+    const qty = cart[p.id] || 0;
+
+    row.innerHTML = `
+      <img src="${p.imageUrl || ''}" alt="${p.name}" onerror="this.style.visibility='hidden'" />
+      <div class="row-info">
+        <p class="name">${p.name}</p>
+        <p class="unit-note">${p.details || ("ឯកតា៖ " + p.unit)}</p>
+        <div class="price-line">
+          <span class="price">${fmtRiel(p.price)}/${p.unit}</span>
+          <span class="stock ${isLow ? 'low' : ''}">${isOut ? 'អស់ស្តុក' : 'នៅសល់ ' + p.stock}</span>
+        </div>
+        <div class="stepper">
+          <button class="dec" ${isOut ? 'disabled' : ''}>−</button>
+          <input type="text" inputmode="decimal" value="${qty}" />
+          <button class="inc" ${isOut ? 'disabled' : ''}>+</button>
+          <span class="subtotal">${qty > 0 ? fmtRiel(qty * p.price) : ''}</span>
+        </div>
+      </div>
+    `;
+
+    const input = row.querySelector("input");
+    const subtotalEl = row.querySelector(".subtotal");
+
+    function clampAndSet(newQty) {
+      newQty = Math.max(0, newQty);
+      if (p.maxOrderQty > 0) newQty = Math.min(newQty, p.maxOrderQty);
+      newQty = Math.min(newQty, p.stock);
+      newQty = Math.round(newQty * 10) / 10;
+      if (newQty > 0) cart[p.id] = newQty; else delete cart[p.id];
+      input.value = newQty;
+      subtotalEl.textContent = newQty > 0 ? fmtRiel(newQty * p.price) : "";
+      updateCartBar();
+    }
+
+    row.querySelector(".inc").onclick = () => clampAndSet((cart[p.id] || 0) + step);
+    row.querySelector(".dec").onclick = () => clampAndSet((cart[p.id] || 0) - step);
+    input.onchange = () => clampAndSet(parseFloat(input.value.replace(",", ".")) || 0);
+
+    return row;
+  }
+
+  function cartLines() {
+    return Object.entries(cart).map(([id, qty]) => {
+      const p = products.find(pp => String(pp.id) === String(id));
+      return { product: p, qty };
+    }).filter(l => l.product);
+  }
+
+  function cartTotal() {
+    return cartLines().reduce((sum, l) => sum + l.qty * l.product.price, 0);
+  }
+
+  function updateCartBar() {
+    const lines = cartLines();
+    const total = cartTotal();
+    cartCountEl.textContent = lines.length + " ធាតុ";
+    cartTotalEl.textContent = fmtRiel(total);
+    cartBar.classList.toggle("visible", lines.length > 0);
+
+    if (tg) {
+      if (lines.length > 0) {
+        tg.MainButton.setText("✅ បញ្ជាទិញ — " + fmtRiel(total));
+        tg.MainButton.show();
+      } else {
+        tg.MainButton.hide();
+      }
+    }
+  }
+
+  function openCartSheet() {
+    const lines = cartLines();
+    const cartItemsEl = document.getElementById("cart-items");
+    cartItemsEl.innerHTML = "";
+    lines.forEach(l => {
+      const div = document.createElement("div");
+      div.className = "cart-item";
+      div.innerHTML = `
+        <span>${l.product.name} × ${l.qty} ${l.product.unit}</span>
+        <span>${fmtRiel(l.qty * l.product.price)}
+          <button class="remove" data-id="${l.product.id}">លុប</button>
+        </span>`;
+      cartItemsEl.appendChild(div);
+    });
+    document.getElementById("sheet-total").textContent = fmtRiel(cartTotal());
+
+    cartItemsEl.querySelectorAll(".remove").forEach(btn => {
+      btn.onclick = () => { delete cart[btn.dataset.id]; render(); openCartSheet(); };
+    });
+
+    overlay.classList.add("open");
+    sheet.classList.add("open");
+  }
+
+  function closeCartSheet() {
+    overlay.classList.remove("open");
+    sheet.classList.remove("open");
+  }
+
+  document.getElementById("pay-methods").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-method]");
+    if (!btn) return;
+    selectedPayMethod = btn.dataset.method;
+    document.querySelectorAll("#pay-methods button").forEach(b => b.classList.remove("selected"));
+    btn.classList.add("selected");
+  });
+
+  cartBar.addEventListener("click", openCartSheet);
+  overlay.addEventListener("click", closeCartSheet);
+
+  async function submitOrder() {
+    const lines = cartLines();
+    if (lines.length === 0) { toast("កន្ត្រករបស់អ្នកទទេ។"); return; }
+
+    if (tg) tg.MainButton.showProgress();
+
+    const items = lines.map(l => ({
+      name: l.product.name,
+      unit: l.product.unit,
+      qty: l.qty,
+      subtotal: l.qty * l.product.price
+    }));
+
+    try {
+      const res = await fetch(API_BASE + "/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          initData: tg ? tg.initData : "",
+          items,
+          paymentMethod: selectedPayMethod
+        })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (tg) tg.HapticFeedback.notificationOccurred("success");
+        cart = {};
+        closeCartSheet();
+        render();
+        toast("✅ បានទទួល Order! លេខវិក្កយបត្រ " + data.invoiceNo);
+        setTimeout(() => { if (tg) tg.close(); }, 1800);
+      } else {
+        if (tg) tg.HapticFeedback.notificationOccurred("error");
+        toast(data.message || "មានបញ្ហា សូមព្យាយាមម្តងទៀត");
+      }
+    } catch (e) {
+      toast("មិនអាចភ្ជាប់ទៅ Server បានទេ");
+    } finally {
+      if (tg) tg.MainButton.hideProgress();
+    }
+  }
+
+  if (tg) tg.MainButton.onClick(submitOrder);
+  document.getElementById("cart-bar").addEventListener("dblclick", submitOrder); // fallback if opened outside Telegram
+
+  loadProducts();
+})();
+</script>
+</body>
+</html>
