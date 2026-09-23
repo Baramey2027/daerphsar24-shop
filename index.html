@@ -316,6 +316,23 @@
     return cartLines().reduce((sum, l) => sum + l.qty * l.product.price, 0);
   }
 
+  // 👇 កែថ្មី — Bug 1 fix: debounce MainButton text update ជៀសវាង WebView bridge ជាន់គ្នា
+  // (ជាមូលហេតុចម្បងធ្វើឲ្យ label លើប៊ូតុងជាប់គាំងលើតម្លៃចាស់ ពេលចុច +/- លឿនៗ)
+  let mainButtonSyncTimer = null;
+  function syncMainButtonText(total, lineCount, immediate) {
+    if (!tg) return;
+    clearTimeout(mainButtonSyncTimer);
+    const apply = () => {
+      if (lineCount > 0) {
+        tg.MainButton.setText("✅ បញ្ជាទិញ — " + fmtRiel(total));
+        tg.MainButton.show();
+      } else {
+        tg.MainButton.hide();
+      }
+    };
+    if (immediate) { apply(); } else { mainButtonSyncTimer = setTimeout(apply, 60); }
+  }
+
   function updateCartBar() {
     const lines = cartLines();
     const total = cartTotal();
@@ -323,14 +340,7 @@
     cartTotalEl.textContent = fmtRiel(total);
     cartBar.classList.toggle("visible", lines.length > 0);
 
-    if (tg) {
-      if (lines.length > 0) {
-        tg.MainButton.setText("✅ បញ្ជាទិញ — " + fmtRiel(total));
-        tg.MainButton.show();
-      } else {
-        tg.MainButton.hide();
-      }
-    }
+    syncMainButtonText(total, lines.length, false);
   }
 
   function openCartSheet() {
@@ -353,6 +363,10 @@
       btn.onclick = () => { delete cart[btn.dataset.id]; render(); openCartSheet(); };
     });
 
+    // 👇 កែថ្មី — Bug 1 fix: sync ភ្លាមៗ (immediate=true, គ្មាន debounce) ពេលបើក sheet
+    // ដើម្បីធានាថា sheet-total និង MainButton ត្រូវគ្នា 100% គ្រប់ពេល
+    syncMainButtonText(cartTotal(), lines.length, true);
+
     overlay.classList.add("open");
     sheet.classList.add("open");
   }
@@ -373,11 +387,40 @@
   cartBar.addEventListener("click", openCartSheet);
   overlay.addEventListener("click", closeCartSheet);
 
+  // 👇 កែថ្មី — Bug 2 fix: រង់ចាំ tg.initData load ចប់ (រហូតដល់ maxWaitMs)
+  // ជំនួសបង្ហាញ error ភ្លាមៗពេលវាមិនទាន់ត្រៀមខ្លួន (ជាពិសេសលើទូរស័ព្ទ ដែល
+  // Telegram WebApp SDK អាចត្រូវការពេលបន្តិចដើម្បី populate initData)
+  function waitForInitData(maxWaitMs) {
+    return new Promise((resolve) => {
+      if (!tg) return resolve();
+      const start = Date.now();
+      (function check() {
+        if (tg.initData) return resolve();
+        if (Date.now() - start >= maxWaitMs) return resolve();
+        setTimeout(check, 100);
+      })();
+    });
+  }
+
   async function submitOrder() {
     const lines = cartLines();
     if (lines.length === 0) { toast("កន្ត្រករបស់អ្នកទទេ។"); return; }
 
     if (tg) tg.MainButton.showProgress();
+
+    // 👇 កែថ្មី — Bug 2 fix: រង់ចាំរហូតដល់ 2 វិនាទី ប្រសិនបើ initData មិនទាន់ load ចប់
+    if (tg && !tg.initData) {
+      await waitForInitData(2000);
+    }
+
+    if (tg && !tg.initData) {
+      tg.MainButton.hideProgress();
+      toast("មិនអាចផ្ទៀងផ្ទាត់គណនី Telegram បានទេ សូមបិទហើយបើក App ម្តងទៀត");
+      return;
+    }
+
+    // 👇 កែថ្មី — Bug 1 fix: បង្ខំ sync លេខចុងក្រោយភ្លាមៗ មុនផ្ញើ request
+    syncMainButtonText(cartTotal(), lines.length, true);
 
     const items = lines.map(l => ({
       name: l.product.name,
